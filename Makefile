@@ -1,8 +1,13 @@
 CC = gcc
-FLAGS = -Wall -Wextra -pedantic -std=c17 -Iinclude
+FLAGS = -Wall -Wextra -pedantic -std=c17 -Iinclude -D_GNU_SOURCE
 DEBUG_FLAG = -g 
-LING_FLAG = -lxbps -lnotcurses
+LINK_FLAG = -lxbps  -lnotcurses -lnotcurses-core
 OPTIMIZE_FLAG = -O3
+
+ifeq ($(CC),clang) 
+	FLAGS += -fblocks
+	LINK_FLAG += -lBlocksRuntime
+endif
 
 # XBPS-UI
 NAME = xui 
@@ -26,7 +31,7 @@ endif
 all: dir ${NAME}
 
 ${NAME}: ${OBJ}
-	${CC} ${FLAGS} $^ -o $@ $(LING_FLAG)
+	${CC} ${FLAGS} $^ -o $@ $(LINK_FLAG)
 
 ${BUILD_DIR}/%.o : $(SRC_DIR)/%.c
 	${CC} ${FLAGS} -c $< -o $@
