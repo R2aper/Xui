@@ -1,6 +1,6 @@
 #include "model.h"
 
-#include <ctype.h>
+#include "utils.h"
 #include <notcurses/notcurses.h>
 
 const element_t elements[] = {
@@ -40,26 +40,6 @@ void model_t_cleanup(model_t *state) {
     ncplane_destroy(state->list_plane);
   if (state->nc)
     notcurses_stop(state->nc);
-}
-
-static inline const char *strcasestr_portable(const char *haystack,
-                                              const char *needle) {
-  if (!*needle) {
-    return haystack;
-  }
-  for (; *haystack; ++haystack) {
-    const char *h = haystack;
-    const char *n = needle;
-    while (*h && *n &&
-           tolower((unsigned char)*h) == tolower((unsigned char)*n)) {
-      h++;
-      n++;
-    }
-    if (!*n) {
-      return haystack;
-    }
-  }
-  return NULL;
 }
 
 void filter_elements(model_t *state) {
