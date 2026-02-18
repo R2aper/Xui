@@ -38,11 +38,23 @@ bool draw_info(model_t *state) {
   ncplane_set_fg_default(state->info_plane);
 
   // Print info
-  if (state->filtered_count > 0) {
-    const element_t *elem =
-        &elements[state->filtered_indices[state->selected_idx]];
+  if (state->filtered_count > 0 &&
+      state->selected_idx < state->filtered_count) {
+    const package_info_t *pkg =
+        &state->packages
+             ->packages[state->filtered_indices[state->selected_idx]];
 
-    ncplane_putstr_yx(state->info_plane, 1, 1, elem->desc);
+    int y = 1;
+    ncplane_printf_yx(state->info_plane, y++, 1, "Pkg: %s",
+                      pkg->pkgver ? pkg->pkgver : "N/A");
+    ncplane_printf_yx(state->info_plane, y++, 1, "Desc: %s",
+                      pkg->short_desc ? pkg->short_desc : "N/A");
+    ncplane_printf_yx(state->info_plane, y++, 1, "Homepage: %s",
+                      pkg->homepage ? pkg->homepage : "N/A");
+    ncplane_printf_yx(state->info_plane, y++, 1, "License: %s",
+                      pkg->license ? pkg->license : "N/A");
+    ncplane_printf_yx(state->info_plane, y++, 1, "Maintainer: %s",
+                      pkg->maintainer ? pkg->maintainer : "N/A");
   } else {
     ncplane_set_fg_rgb(state->info_plane, RED);
     ncplane_putstr_yx(state->info_plane, 1, 1, "No Match");
@@ -69,7 +81,8 @@ bool draw_list(model_t *state) {
 
   for (size_t i = start; i < end; i++) {
     int y = (int)(i - start);
-    const element_t *elem = &elements[state->filtered_indices[i]];
+    const package_info_t *pkg =
+        &state->packages->packages[state->filtered_indices[i]];
 
     // Highlight selected element
     if (i == state->selected_idx && state->focus == LIST) {
@@ -80,7 +93,7 @@ bool draw_list(model_t *state) {
       ncplane_set_bg_default(state->list_plane);
     }
 
-    ncplane_putstr_yx(state->list_plane, y, 1, elem->name);
+    ncplane_putstr_yx(state->list_plane, y, 1, pkg->pkgver);
   }
 
   // Scroll
@@ -144,7 +157,7 @@ bool init_ui(model_t *state) {
   state->visible_start = 0;
   state->input_buffer[0] = '\0';
   state->input_len = 0;
-  state->focus = LIST; // Фокус на списке по умолчанию
+  state->focus = LIST;
 
   filter_elements(state);
 

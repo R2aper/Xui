@@ -11,7 +11,6 @@ bool run_app(model_t *state) {
 
   if (!init_ui(state)) {
     fprintf(stderr, "Error creating interface\n");
-    model_t_cleanup(state);
     return false;
   }
 
@@ -25,7 +24,7 @@ bool run_app(model_t *state) {
     if (input == EXIT || input == ERROR)
       break;
     else if (input == SWITCH_TAB)
-      state->focus = 1 - state->focus;
+      state->focus = (state->focus + 1) % 2;
 
     draw_list(state);
     draw_input(state);

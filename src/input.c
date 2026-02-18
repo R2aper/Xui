@@ -55,24 +55,23 @@ ACTION handle_input(model_t *state, const ncinput *ni) {
           state->visible_start--;
       }
     } else if (ni->id == NCKEY_PGUP) { // Page Up
-      if (state->selected_idx >= (size_t)rows) {
-        state->selected_idx -= rows;
-        state->visible_start = (state->selected_idx > (size_t)rows)
-                                   ? state->selected_idx - rows
-                                   : 0;
-      } else {
-        state->selected_idx = 0;
-        state->visible_start = 0;
+      if (state->selected_idx > 0) {
+        state->selected_idx = (state->selected_idx > (size_t)rows)
+                                  ? state->selected_idx - rows
+                                  : 0;
+      }
+      if (state->visible_start > state->selected_idx) {
+        state->visible_start = state->selected_idx;
       }
     } else if (ni->id == NCKEY_PGDOWN) { // Page Down
-      if (state->selected_idx + rows < state->filtered_count) {
-        state->selected_idx += rows;
-        state->visible_start = state->selected_idx;
-      } else {
-        state->selected_idx = state->filtered_count - 1;
-        state->visible_start = (state->filtered_count > (size_t)rows)
-                                   ? state->filtered_count - rows
-                                   : 0;
+      if (state->selected_idx < state->filtered_count - 1) {
+        state->selected_idx =
+            (state->selected_idx + rows < state->filtered_count)
+                ? state->selected_idx + rows
+                : state->filtered_count - 1;
+      }
+      if (state->selected_idx >= state->visible_start + (size_t)rows) {
+        state->visible_start = state->selected_idx - rows + 1;
       }
     }
   }

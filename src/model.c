@@ -1,29 +1,42 @@
 #include "model.h"
 
+#include "pkg_search.h"
 #include "utils.h"
 #include <notcurses/notcurses.h>
-
-const element_t elements[] = {
-    {"Element1", "First element"},  {"Element2", "Second element"},
-    {"Element3", "Third element"},  {"Element11", "Third element"},
-    {"Element22", "Third element"}, {"Element33", " element"},
-    {"Element44", "1 element"},     {"Element55", "2 element"},
-    {"Element66", "2 element"},     {"Element67", "3 element"},
-
-};
-
-const size_t elements_count = sizeof(elements) / sizeof(elements[0]);
+#include <stdlib.h>
+#include <xbps.h>
 
 model_t model_t_init(struct notcurses_options opts) {
   model_t state = {0};
 
   state.nc = notcurses_init(&opts, NULL);
   if (!state.nc) {
-    fprintf(stderr, "Ошибка инициализации notcurses\n");
+    fprintf(stderr, "Initialization error: notcurses\n");
+    return (model_t){0};
+  }
+  ncplane_set_scrolling(notcurses_stdplane(state.nc), false);
+
+  if (xbps_init(&state.xhp) != 0) {
+    fprintf(stderr, "Initialization error: libxbps\n");
+    notcurses_stop(state.nc);
     return (model_t){0};
   }
 
-  ncplane_set_scrolling(notcurses_stdplane(state.nc), false);
+  state.packages = search_packages(&state.xhp, "", LOCAL, false);
+  if (!state.packages) {
+    xbps_end(&state.xhp);
+    notcurses_stop(state.nc);
+    return (model_t){0};
+  }
+
+  state.filtered_indices_cap = state.packages->count;
+  state.filtered_indices = malloc(state.filtered_indices_cap * sizeof(size_t));
+  if (!state.filtered_indices) {
+    search_result_cleanup(state.packages);
+    xbps_end(&state.xhp);
+    notcurses_stop(state.nc);
+    return (model_t){0};
+  }
 
   return state;
 }
@@ -31,6 +44,14 @@ model_t model_t_init(struct notcurses_options opts) {
 void model_t_cleanup(model_t *state) {
   if (!state)
     return;
+
+  if (state->packages)
+    search_result_cleanup(state->packages);
+
+  if (state->filtered_indices)
+    free(state->filtered_indices);
+
+  xbps_end(&state->xhp);
 
   if (state->info_plane)
     ncplane_destroy(state->info_plane);
@@ -44,8 +65,13 @@ void model_t_cleanup(model_t *state) {
 
 void filter_elements(model_t *state) {
   if (state->input_len == 0) {
-    state->filtered_count = elements_count;
-    for (size_t i = 0; i < elements_count && i < 64; i++) {
+    state->filtered_count = state->packages->count;
+    if (state->filtered_indices_cap < state->packages->count) {
+      state->filtered_indices = realloc(
+          state->filtered_indices, state->packages->count * sizeof(size_t));
+      state->filtered_indices_cap = state->packages->count;
+    }
+    for (size_t i = 0; i < state->packages->count; i++) {
       state->filtered_indices[i] = i;
     }
     state->selected_idx = 0;
@@ -55,8 +81,21 @@ void filter_elements(model_t *state) {
 
   // Filtering by substring
   state->filtered_count = 0;
-  for (size_t i = 0; i < elements_count && state->filtered_count < 64; i++) {
-    if (strcasestr_portable(elements[i].name, state->input_buffer)) {
+  for (size_t i = 0; i < state->packages->count; i++) {
+    package_info_t *pkg = &state->packages->packages[i];
+    if ((pkg->pkgver &&
+         strcasestr_portable(pkg->pkgver, state->input_buffer)) ||
+        (pkg->short_desc &&
+         strcasestr_portable(pkg->short_desc, state->input_buffer))) {
+
+      if (state->filtered_count >= state->filtered_indices_cap) {
+        state->filtered_indices_cap = state->filtered_indices_cap > 0
+                                          ? state->filtered_indices_cap * 2
+                                          : 128;
+        state->filtered_indices =
+            realloc(state->filtered_indices,
+                    state->filtered_indices_cap * sizeof(size_t));
+      }
       state->filtered_indices[state->filtered_count++] = i;
     }
   }
